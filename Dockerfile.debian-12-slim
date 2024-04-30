@@ -1,0 +1,61 @@
+# Copyright 2024 vivimice <vivimice@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+FROM library/debian:12-slim as build
+ARG DEB_MIRROR=http://deb.debian.org/debian
+ARG DEB_SECURITY_MIRROR=http://deb.debian.org/debian-security
+RUN sed -i "s#http://deb.debian.org/debian#${DEB_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
+    && sed -i "s#http://deb.debian.org/debian-security#${DEB_SECURITY_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && apt-get clean autoclean && apt-get autoremove --yes \
+    && rm -rf /var/lib/apt /var/cache/apt
+
+ADD src /src
+RUN cd /src && make
+
+FROM library/debian:12-slim
+
+LABEL maintainer="vivimice <vivimice@gmail.com>"
+
+ARG DEB_MIRROR=http://deb.debian.org/debian
+ARG DEB_SECURITY_MIRROR=http://deb.debian.org/debian-security
+RUN sed -i "s#http://deb.debian.org/debian#${DEB_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
+    && sed -i "s#http://deb.debian.org/debian-security#${DEB_SECURITY_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends systemd \
+    && apt-get clean autoclean && apt-get autoremove --yes \
+    && rm -rf /var/lib/apt /var/cache/apt
+
+RUN systemctl mask \
+    modprobe@loop.service \
+    systemd-modules-load.service \
+    systemd-remount-fs.service \
+    apt-daily.timer \
+    apt-daily-upgrade.timer \
+    dpkg-db-backup.timer \
+    e2scrub_all.timer \
+    e2scrub_reap.service \
+    console-getty.service \
+    getty@tty1.service \
+    systemd-logind.service
+
+STOPSIGNAL SIGRTMIN+3
+
+COPY --from=build --chmod=0644 src/libjournalagent_interceptor.so     /usr/lib/
+COPY --from=build --chmod=0755 src/journalagent src/systemd-bootstrap /usr/bin/
+COPY --from=build --chmod=0644 src/journalagent.service               /etc/systemd/system/
+RUN systemctl enable journalagent
+
+ENTRYPOINT [ "/usr/bin/systemd-bootstrap" ]
