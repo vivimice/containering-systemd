@@ -128,3 +128,9 @@ Tested:
 
 - containerd (v1.7.6) on Debian 12.5
 - Docker Engine (v24.0.6) on Windows Wsl 2 (Ubuntu Jammy)
+
+# References
+
+- https://developers.redhat.com/blog/2019/04/24/how-to-run-systemd-in-a-container
+- https://developers.redhat.com/blog/2016/09/13/running-systemd-in-a-non-privileged-container
+- https://systemd.io/CONTAINER_INTERFACE/
