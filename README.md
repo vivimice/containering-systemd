@@ -97,7 +97,7 @@ The following diagram illustrates this idea:
 
 This workaround works most of the time, but there is one pitfall: the unintentional exit of journalctl process.
 
-In this workaround, journalctl process more like systemd's sibling, rather than as a child process. If journalctl unexpectedly exits (due to an out-of-memory killer, accidental termination by another process inside the container, or a bug in journalctl itself, although this is least likely) it would result in a permanent halt of the log output. That's because the only file descriptor, which write logs to the container manager, will be closed upon the exit journalctl.
+In this workaround, journalctl process more like systemd's sibling, rather than as a child process. If journalctl unexpectedly exits (due to an out-of-memory killer, accidental termination by another process inside the container, or a bug in journalctl itself, although this is least likely) it would result in a permanent halt of the log output. That's because the only file descriptor, which write logs to the container manager, will be closed upon the exit of journalctl.
 
 This risk factor makes this workaround unsuitable for production environments.
 
@@ -106,7 +106,7 @@ This risk factor makes this workaround unsuitable for production environments.
 containering-systemd solved the problem by saving the stdout/stderr file descriptor from closing in systemd, and reconnect it to journalctl in a service unit:
 
 1. systemd is started as main process with `LD_PRELOAD` pointing to our _libjournalagent-interceptor.so_.
-2. In _libjournalagent-interceptor.so_, a code snippet is called prior to the actual main function of systemd. The code snippet duplicates stdout by callibg `dup()`, then record the returning fd both in memory and environment variable `SYSTEMD_STDOUT_FILENO`.
+2. In _libjournalagent-interceptor.so_, a code snippet is called prior to the actual main function of systemd. The code snippet duplicates stdout by calling `dup()`, then record the returning fd both in memory and environment variable `SYSTEMD_STDOUT_FILENO`.
 3. During the initialization of systemd, `collect_fds()` discovers all opening fds, including our duplicated one, and then pass it to `close(int)`. But _libjournalagent-interceptor.so_ had hooked this libc function, and ignores if the argument matches the value we'd stored in the previous step.
 4. After systemd successfully initialized, it will start a special service unit named `journalagent`, and pass `SYSTEMD_STDOUT_FILENO` (instructed by `PassEnvironment=` directive in _journalagent.service_).
 5. _journalagent_ service uses `pidfd_getfd` syscall in Linux to copy the duplicated file descriptor from systemd, call `dup2` to wire it as its own stdout, and then fork/exec journalctl
