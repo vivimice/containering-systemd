@@ -25,16 +25,16 @@ Note: If you want to stop the container, always use `nerdctl container stop <con
 You can use containering-systemd in non-base-image fashion. Just use multi-stage build feature, and use containering-systemd as a build container: 
 
 ```Dockerfile
-FROM vivimice/containering-systemd:debian-12-slim as contaiering-systemd
+FROM vivimice/containering-systemd:debian-12-slim as containering-systemd
 ```
 
 Then add the following `COPY` instruction to your Dockerfile:
 
 ```Dockerfile
 # Copy journalagent from containering-systemd image and enable it
-COPY --from=contaiering-systemd --chmod=0644 /usr/lib/libjournalagent_interceptor.so          /usr/lib/
-COPY --from=contaiering-systemd --chmod=0755 /usr/bin/journalagent /usr/bin/systemd-bootstrap /usr/bin/
-COPY --from=contaiering-systemd --chmod=0644 /etc/systemd/system/journalagent.service         /etc/systemd/system/
+COPY --from=containering-systemd --chmod=0644 /usr/lib/libjournalagent_interceptor.so          /usr/lib/
+COPY --from=containering-systemd --chmod=0755 /usr/bin/journalagent /usr/bin/systemd-bootstrap /usr/bin/
+COPY --from=containering-systemd --chmod=0644 /etc/systemd/system/journalagent.service         /etc/systemd/system/
 RUN systemctl enable journalagent
 
 # Define stop signal for systemd
